@@ -1,11 +1,15 @@
 name: .NET Core
 
 env:
-  DOTNET_VERSION: 2.2.108
+  DOTNET_VERSION: 2.2.108           # *** Change to necessary version ***
+  VERSION_PREFIX: 0.1.0             # *** Change the version when necessary ***
+  VERSION_SUFFIX_PREFIX: beta       # *** Set this to something else if "beta" isn't good ***
+  SLN_DIR: ./src                    # *** Change this if your sln isn't in this directory ***
+  LICENSE_XPRESSION: LGPL-3.0-only  # *** change to whatever ***
+  
+  # some useful values to versioning, etc.
   BUILD_OUTPUT: ${{github.workspace}}/build-${{github.run_number}}
   BUILD_NUMBER: ${{github.run_number}}
-  VERSION_PREFIX: 0.1.0
-  VERSION_SUFFIX_PREFIX: beta
   VERSION_SUFFIX: ${{VERSION_SUFFIX_PREFIX}}${{BUILD_NUMBER}}
 
 on: [push]
@@ -23,10 +27,9 @@ jobs:
         dotnet-version: ${{env.DOTNET_VERSION}}
 
     - name: Building
-      run: >
-        dotnet build -p:VersionPrefix=$VERSION_PREFIX -p:VersionSuffx=$VERSION_SUFFIX
-        --configuration Release
-        --output $BUILD_OUTPUT
+      run: |
+        cd $SLN_DIR
+        dotnet build -p:VersionPrefix=$VERSION_PREFIX -p:VersionSuffx=$VERSION_SUFFIX --configuration Release --output $BUILD_OUTPUT
 
     - name: Saving of artifacts
       uses: actions/upload-artifact@v1.0.0
@@ -34,10 +37,6 @@ jobs:
         name: binaries
         path: ${{env.BUILD_OUTPUT}}
 
-    - name: Tracing
-      run: |
-        echo $BUILD_NUMBER
-        ls */ -d
     - name: Verifying
       run: dotnet test --no-build --output $BUILD_OUTPUT /p:CollectCoverage=true /p:CoverletOutputFormat=opencover --logger "trx;LogFileName=${{github.workspace}}/Results.trx" 
 
@@ -48,7 +47,7 @@ jobs:
         name: test-log
         path: Results.trx
 
-    - name: find-trx
+    - name: find-trx that was not found
       if: failure()
       run: find . -name Results.trx
 
@@ -57,6 +56,18 @@ jobs:
         dotnet pack -p:OutputPath=$BUILD_OUTPUT
         --configuration Release
         -p:PackageVersion=$VERSION_PREFIX
+        -p:Title= <Enter a title here>
+        -p:Authors= <Some Names here>
+        -p:PackageDescription= <>
+        -p:Copyright= <(C) ${{ github.actor}} 2020>
+        -p:PackageLicenseExpression=$LICENSE_EXPRESSION
+        -p:PackageIconUrl=<>
+        -p:PackageReleaseNotes= <${{ github.event.commits.head_commit.message }}>
+        -p:IncludeSymbols=true
+        -p:RepositoryUrl=${{ github.repositoryUrl }}
+        -p:RepositoryType=git
+        -p:RepositoryBranch=${{ github.ref }}
+        -p:RepositoryCommit=${{ github.sha }}
         --version-suffix=$VERSION_SUFFIX
         --include-symbols
         --no-build
