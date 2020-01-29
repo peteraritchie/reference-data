@@ -1,0 +1,105 @@
+name: .NET Core
+
+env:
+  DOTNET_VERSION: 2.2.108
+  BUILD_OUTPUT: ${{github.workspace}}/build-${{github.run_number}}
+  BUILD_NUMBER: ${{github.run_number}}
+  VERSION_PREFIX: 0.1.0
+  VERSION_SUFFIX_PREFIX: beta
+  VERSION_SUFFIX: ${{VERSION_SUFFIX_PREFIX}}${{BUILD_NUMBER}}
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: ${{env.DOTNET_VERSION}}
+
+    - name: Building
+      run: >
+        dotnet build -p:VersionPrefix=$VERSION_PREFIX -p:VersionSuffx=$VERSION_SUFFIX
+        --configuration Release
+        --output $BUILD_OUTPUT
+
+    - name: Saving of artifacts
+      uses: actions/upload-artifact@v1.0.0
+      with:
+        name: binaries
+        path: ${{env.BUILD_OUTPUT}}
+
+    - name: Tracing
+      run: |
+        echo $BUILD_NUMBER
+        ls */ -d
+    - name: Verifying
+      run: dotnet test --no-build --output $BUILD_OUTPUT /p:CollectCoverage=true /p:CoverletOutputFormat=opencover --logger "trx;LogFileName=${{github.workspace}}/Results.trx" 
+
+    - name: Saving of test log
+      uses: actions/upload-artifact@v1.0.0
+      with:
+        optional: true
+        name: test-log
+        path: Results.trx
+
+    - name: find-trx
+      if: failure()
+      run: find . -name Results.trx
+
+    - name: Packaging
+      run: >
+        dotnet pack -p:OutputPath=$BUILD_OUTPUT
+        --configuration Release
+        -p:PackageVersion=$VERSION_PREFIX
+        --version-suffix=$VERSION_SUFFIX
+        --include-symbols
+        --no-build
+        --output $BUILD_OUTPUT
+
+    - name: list Nupkgs
+      run: find . -name *.nupkg
+
+    - name: Saving of artifacts
+      uses: actions/upload-artifact@v1.0.0
+      with:
+        name: binaries
+        path: ${{env.BUILD_OUTPUT}}
+
+  deploy:
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setup NuGet.exe for use with actions
+      uses: NuGet/setup-nuget@v1.0.2
+      with:
+        nuget-api-key: ${{ secrets.GITHUB_TOKEN }}
+        nuget-version: latest
+
+    - name: Setup DotNet
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: ${{env.DOTNET_VERSION}}
+
+    - name: Download artifcats
+      uses: actions/download-artifact@v1.0.0
+      with:
+        name: binaries
+        path: ${{env.BUILD_OUTPUT}}
+
+    - name: Push to GitHub Packages
+      run: dotnet nuget push "${{env.BUILD_OUTPUT}}/*.nupkg" --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/${{ github.repository }}/index.json
+
+    - name: WAT?
+      if: failure()
+      run: |
+        nuget sources
+        cat ~/.config/NuGet/NuGet.Config
+        
