@@ -5,7 +5,7 @@ env:
   VERSION_PREFIX: 0.1.0             # *** Change the version when necessary ***
   VERSION_SUFFIX_PREFIX: beta       # *** Set this to something else if "beta" isn't good ***
   SLN_DIR: ./src                    # *** Change this if your sln isn't in this directory ***
-  LICENSE_XPRESSION: LGPL-3.0-only  # *** change to whatever ***
+  LICENSE_EXPRESSION: LGPL-3.0-only # *** change to whatever ***
   
   # some useful values to versioning, etc.
   BUILD_OUTPUT: ${{github.workspace}}/build-${{github.run_number}}
